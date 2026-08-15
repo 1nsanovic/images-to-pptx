@@ -114,7 +114,7 @@ class App(ctk.CTk):
             photo = ImageTk.PhotoImage(icon)
             self.iconphoto(True, photo)
             self._icon_photo = photo
-        except OSError:
+        except Exception:
             self._icon_photo = None
 
     def _start_background(self) -> None:

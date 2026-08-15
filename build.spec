@@ -7,6 +7,7 @@ hiddenimports = (
     collect_submodules("pynput")
     + collect_submodules("pystray")
     + collect_submodules("jeepney")
+    + ["PIL._tkinter_finder", "PIL._imagingtk"]
 )
 for pkg in ("customtkinter",):
     pkg_datas, pkg_binaries, pkg_hidden = collect_all(pkg)
