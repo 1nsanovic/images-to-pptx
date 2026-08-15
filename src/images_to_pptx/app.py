@@ -1,6 +1,9 @@
 from __future__ import annotations
 
+import os
+import signal
 import sys
+import threading
 import time
 from pathlib import Path
 from tkinter import filedialog, messagebox
@@ -39,6 +42,7 @@ class App(ctk.CTk):
         self._tray: TrayIcon | None = None
         self._hotkeys: HotkeyListener | None = None
         self._ipc: CaptureIpc | None = None
+        self._quitting = False
         self._capturing = False
         self._recording_hotkey = False
         self._last_capture_at = 0.0
@@ -326,22 +330,38 @@ class App(ctk.CTk):
         self._set_status("Свёрнуто в трей")
 
     def quit_app(self) -> None:
-        if self._hotkeys is not None:
-            try:
-                self._hotkeys.stop()
-            except Exception:
-                pass
-        if self._ipc is not None:
-            try:
-                self._ipc.stop()
-            except Exception:
-                pass
-        if self._tray is not None:
-            try:
-                self._tray.stop()
-            except Exception:
-                pass
-        self.destroy()
+        if self._quitting:
+            return
+        self._quitting = True
+
+        def _stop_background() -> None:
+            if self._hotkeys is not None:
+                try:
+                    self._hotkeys.stop()
+                except Exception:
+                    pass
+                self._hotkeys = None
+            if self._ipc is not None:
+                try:
+                    self._ipc.stop()
+                except Exception:
+                    pass
+                self._ipc = None
+            if self._tray is not None:
+                try:
+                    self._tray.stop()
+                except Exception:
+                    pass
+                self._tray = None
+
+        worker = threading.Thread(target=_stop_background, daemon=True)
+        worker.start()
+        worker.join(timeout=2.0)
+        try:
+            self.destroy()
+        except Exception:
+            pass
+        os._exit(0)
 
 
 def _enable_dpi_awareness() -> None:
@@ -363,4 +383,13 @@ def run() -> None:
     ctk.set_appearance_mode("system")
     ctk.set_default_color_theme("blue")
     app = App()
+
+    def _on_signal(_signum: int, _frame: object) -> None:
+        app.after(0, app.quit_app)
+
+    try:
+        signal.signal(signal.SIGINT, _on_signal)
+        signal.signal(signal.SIGTERM, _on_signal)
+    except ValueError:
+        pass
     app.mainloop()

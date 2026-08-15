@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import threading
 from collections.abc import Callable
 
 import pystray
@@ -28,12 +29,20 @@ class TrayIcon:
                 MenuItem("Выход", lambda: on_quit()),
             ),
         )
+        self._thread: threading.Thread | None = None
 
     def start(self) -> None:
-        self._icon.run_detached()
+        self._thread = threading.Thread(target=self._icon.run, daemon=True)
+        self._thread.start()
 
     def stop(self) -> None:
-        self._icon.stop()
+        try:
+            self._icon.stop()
+        except Exception:
+            pass
+        thread = self._thread
+        if thread is not None and thread is not threading.current_thread():
+            thread.join(timeout=1.0)
 
     def notify(self, title: str, message: str) -> None:
         self._icon.notify(message, title)
